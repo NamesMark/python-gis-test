@@ -1,0 +1,22 @@
+COLORS = [
+    'aquamarine',
+    'mediumseagreen',
+    'firebrick',
+    'goldenrod',
+    'deepskyblue',
+    'orchid',
+    'darkorange',
+    'steelblue',
+    'darkkhaki',
+    'cadetblue',
+    'chocolate',
+    'dodgerblue',
+    'olivedrab', 
+    'mediumpurple',
+    'tomato',
+    'cornflowerblue',
+    'darkslategray',
+    'mediumvioletred',
+    'lightcoral', 
+    'yellowgreen'
+]
