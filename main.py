@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import random
 import math
 
-from colors import COLORS
+from styles import COLORS, STYLES
 from itertools import cycle
 
 OUTPUT_SIZE = 3000
@@ -13,12 +13,15 @@ MAX_ANGLE = 45
 INPUT_PATH = 'sample/roads.shp'
 OUTPUT_PATH = 'output/solution.png'
 
+VARIED_STYLES = True
+
 color_iter = cycle(COLORS)
+style_iter = cycle(STYLES)
     
 class Street:
     def __init__(self, shape):
         self.shape = shape
-        self.color = None
+        self.style = None
 
 def read_shp(file_path):
     shp = shapefile.Reader(file_path)
@@ -32,27 +35,29 @@ def plot(streets):
         shape = street.shape
         x = [point[0] for point in shape.points]
         y = [point[1] for point in shape.points]
-        ax.plot(x, y, color=street.color)
+        ax.plot(x, y, color=street.style[0], dashes=street.style[1])
     print("SAVED FILE")
     plt.savefig(OUTPUT_PATH, dpi=OUTPUT_RES)
 
-def pick_new_color():
-    return next(color_iter)
+def pick_new_style():
+    if VARIED_STYLES:
+        return (next(color_iter), next(style_iter))
+    return (next(color_iter), (None, None))
 
 def get_vector_from_points(points):
     return (points[-1][0] - points[-2][0], points[-1][1] - points[-2][1])
 
 
-def dfs_color(street, all_streets, current_color):
-    if street.color:
+def dfs_color(street, all_streets, current_style):
+    if street.style:
         return
     
-    street.color = current_color
+    street.style = current_style
     neighbors = check_neighbors(street, all_streets)
     if not neighbors:
         return
     if len(neighbors) == 1:
-        dfs_color(neighbors[0], all_streets, current_color)
+        dfs_color(neighbors[0], all_streets, current_style)
     else:
         target_points = street.shape.points
         target_vector = get_vector_from_points(target_points)
@@ -64,7 +69,7 @@ def dfs_color(street, all_streets, current_color):
             angle = angle_between(target_vector, neighbor_vector)
 
             if angle <= MAX_ANGLE:
-                dfs_color(neighbor, all_streets, current_color)
+                dfs_color(neighbor, all_streets, current_style)
             
 def check_neighbors(target_street, all_streets):
     neighbors = []
@@ -98,17 +103,16 @@ def angle_between(v1, v2):
     angle = math.degrees(math.acos(max(min(cos_angle, 1), -1)))
     if angle>90+MAX_ANGLE:
         angle = abs(angle-180)
-    print(angle)
+    #print(angle)
     return angle
 
 def main():
-    #pick_new_color()
     all_streets = read_shp(INPUT_PATH)
 
     for street in all_streets:
-        if not street.color:
-            current_color = pick_new_color()
-            dfs_color(street, all_streets, current_color)
+        if not street.style:
+            current_style = pick_new_style()
+            dfs_color(street, all_streets, current_style)
 
     plot(all_streets)
 
