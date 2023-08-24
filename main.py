@@ -10,7 +10,7 @@ OUTPUT_SIZE = 3000
 OUTPUT_RES = 300
 MAX_ANGLE = 45
 
-INPUT_PATH = 'sample/roads_tiny.shp'
+INPUT_PATH = 'sample/roads.shp'
 OUTPUT_PATH = 'output/solution.png'
 
 color_iter = cycle(COLORS)
@@ -39,17 +39,32 @@ def plot(streets):
 def pick_new_color():
     return next(color_iter)
 
-def dfs(street, all_streets, current_color):
-    if not street.color:
-        street.color = current_color
+def get_vector_from_points(points):
+    return (points[-1][0] - points[-2][0], points[-1][1] - points[-2][1])
 
-        neighbors = check_neighbors(street, all_streets)
-        if not neighbors:
-            return
-        
+
+def dfs_color(street, all_streets, current_color):
+    if street.color:
+        return
+    
+    street.color = current_color
+    neighbors = check_neighbors(street, all_streets)
+    if not neighbors:
+        return
+    if len(neighbors) == 1:
+        dfs_color(neighbors[0], all_streets, current_color)
+    else:
+        target_points = street.shape.points
+        target_vector = get_vector_from_points(target_points)
+
         for neighbor in neighbors:
-            
-            dfs(neighbor, all_streets, current_color)
+            neighbor_points = neighbor.shape.points
+            neighbor_vector = get_vector_from_points(neighbor_points)
+
+            angle = angle_between(target_vector, neighbor_vector)
+
+            if angle <= MAX_ANGLE:
+                dfs_color(neighbor, all_streets, current_color)
             
 def check_neighbors(target_street, all_streets):
     neighbors = []
@@ -73,29 +88,27 @@ def check_neighbors(target_street, all_streets):
 
     return neighbors
 
-def compute_angle(self, neighbor):
-    vec1 = ()
-    vec2 = ()
-    return angle_between(vec1, vec2)
-
 def angle_between(v1, v2):
     dot_product = v1[0]*v2[0] + v1[1]*v2[1]
     mag_v1 = math.sqrt(v1[0]**2 + v1[1]**2)
     mag_v2 = math.sqrt(v2[0]**2 + v2[1]**2)
+    if mag_v1 == 0 or mag_v2 == 0:
+        return 0
     cos_angle = dot_product / (mag_v1 * mag_v2)
     angle = math.degrees(math.acos(max(min(cos_angle, 1), -1)))
-    angle = abs(180-angle)
+    if angle>90+MAX_ANGLE:
+        angle = abs(angle-180)
     print(angle)
     return angle
 
 def main():
-    pick_new_color()
+    #pick_new_color()
     all_streets = read_shp(INPUT_PATH)
 
     for street in all_streets:
         if not street.color:
             current_color = pick_new_color()
-            dfs(street, all_streets, current_color)
+            dfs_color(street, all_streets, current_color)
 
     plot(all_streets)
 
