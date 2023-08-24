@@ -14,13 +14,18 @@ INPUT_PATH = 'sample/roads_tiny.shp'
 OUTPUT_PATH = 'output/solution.png'
 
 color_iter = cycle(COLORS)
+    
+class Street:
+    def __init__(self, shape):
+        self.shape = shape
+        self.color = None
 
 def read_shp(file_path):
     shp = shapefile.Reader(file_path)
-    return shp.shapes()
-    
+    return [Street(shape) for shape in shp.shapes()]
+
 def plot(streets):
-    dimension = OUTPUT_SIZE/OUTPUT_RES
+    dimension = OUTPUT_SIZE / OUTPUT_RES
     fig, ax = plt.subplots(figsize=(dimension, dimension))
 
     for street in streets:
@@ -33,49 +38,45 @@ def plot(streets):
 
 def pick_new_color():
     return next(color_iter)
-    
-class Street:
-    def __init__(self, shape):
-        self.shape = shape
-        start_point = Point(shape.points[0])
-        end_point = Point(shape.points[-1])
-        self.start_segment = Segment(self, start_point, Point(shape.points[1]))
-        self.end_segment = Segment(self, end_point, Point(shape.points[-2]))
-        start_point.add_segment(self.start_segment)
-        end_point.add_segment(self.end_segment)
-        
-        self.color = None
-        
-class Segment:
-    def __init__(self, street, start, end):
-        self.street = street
-        self.start_point = start
-        self.end_point = end
-        start.add_segment(self)
-        end.add_segment(self)
-        
-        self.neighbors = []
-        
-    def add_neighbor(self, neighbor):
-        angle = self.compute_angle(neighbor)
-        print(f"Segment of {self.street} between {self.start_point.coordinates} and {self.end_point.coordinates} has neighbor between {neighbor.start_point.coordinates} and {neighbor.end_point.coordinates} with angle {angle}")
-        self.neighbors.append((neighbor, angle))
 
-    def compute_angle(self, neighbor):
-        vec1 = (self.end_point.coordinates[0] - self.start_point.coordinates[0], 
-                self.end_point.coordinates[1] - self.start_point.coordinates[1])
-        vec2 = (neighbor.end_point.coordinates[0] - neighbor.start_point.coordinates[0], 
-                neighbor.end_point.coordinates[1] - neighbor.start_point.coordinates[1])
-        return angle_between(vec1, vec2)
+def dfs(street, all_streets, current_color):
+    if not street.color:
+        street.color = current_color
 
-class Point:
-    def __init__(self, coordinates):
-        self.segments = []
-        self.coordinates = coordinates
+        neighbors = check_neighbors(street, all_streets)
+        if not neighbors:
+            return
         
-    def add_segment(self, segment):
-        if segment not in self.segments:
-            self.segments.append(segment)
+        for neighbor in neighbors:
+            
+            dfs(neighbor, all_streets, current_color)
+            
+def check_neighbors(target_street, all_streets):
+    neighbors = []
+    target_points = target_street.shape.points
+    if not target_points:
+        return
+    start_point = target_points[0]
+    end_point = target_points[-1]
+
+    for street in all_streets:
+        if street is not target_street: 
+            street_points = street.shape.points
+            if not street_points:
+                continue
+            street_start = street_points[0]
+            street_end = street_points[-1]
+
+            if start_point == street_start or start_point == street_end or \
+               end_point == street_start or end_point == street_end:
+                neighbors.append(street)
+
+    return neighbors
+
+def compute_angle(self, neighbor):
+    vec1 = ()
+    vec2 = ()
+    return angle_between(vec1, vec2)
 
 def angle_between(v1, v2):
     dot_product = v1[0]*v2[0] + v1[1]*v2[1]
@@ -87,72 +88,16 @@ def angle_between(v1, v2):
     print(angle)
     return angle
 
-def dfs_color(street, current_color, visited=set()):
-    if street.color:
-        print(f"Street {street} already colored as {street.color}")
-        return
-    if street in visited:
-        print(f"Street {street} was already visited")
-        return
-    
-    visited.add(street)
-    
-    if len(street.start_segment.neighbors) == 0 and len(street.end_segment.neighbors) == 0:
-        street.color = current_color
-        print(f"Street {street} has no neighbors, so coloring it {current_color}")
-        return
-    
-    for neighbor, angle in street.start_segment.neighbors:
-        print(f"Checking neighbor from start segment of {street}: {neighbor.street} with angle {angle}")
-        if len(street.start_segment.neighbors) == 1 and not neighbor.street.color:
-            print(f"Only one neighbor and it's not colored, so coloring {neighbor.street} {current_color}")
-            dfs_color(neighbor.street, current_color)
-        elif angle < MAX_ANGLE and not neighbor.street.color:
-            print(f"Neighbor angle less than {MAX_ANGLE} and it's not colored, so coloring {neighbor.street} {current_color}")
-            dfs_color(neighbor.street, current_color)
-        elif not neighbor.street.color and not neighbor.street in visited:
-            new_color = pick_new_color()
-            print(f"Coloring neighbor {neighbor.street} with new color {new_color}")
-            dfs_color(neighbor.street, new_color)
-            
-    for neighbor, angle in street.end_segment.neighbors:
-        print(f"Checking neighbor from end segment of {street}: {neighbor.street} with angle {angle}")
-        if len(street.end_segment.neighbors) == 1 and not neighbor.street.color:
-            print(f"Only one neighbor and it's not colored, so coloring {neighbor.street} {current_color}")
-            dfs_color(neighbor.street, current_color)
-        elif angle<MAX_ANGLE and not neighbor.street.color:
-            print(f"Neighbor angle less than {MAX_ANGLE} and it's not colored, so coloring {neighbor.street} {current_color}")
-            dfs_color(neighbor.street, current_color)
-        elif not neighbor.street.color and not neighbor.street in visited:
-            new_color = pick_new_color()
-            print(f"Coloring neighbor {neighbor.street} with new color {new_color}")
-            dfs_color(neighbor.street, new_color)
-        
+def main():
+    pick_new_color()
+    all_streets = read_shp(INPUT_PATH)
 
-shapes = read_shp(INPUT_PATH)
+    for street in all_streets:
+        if not street.color:
+            current_color = pick_new_color()
+            dfs(street, all_streets, current_color)
 
-streets = []
-crossroads = []
+    plot(all_streets)
 
-for shape in shapes:
-    if shape.points:
-        streets.append(Street(shape))
-        crossroads.append(streets[-1].start_segment.start_point)
-        crossroads.append(streets[-1].end_segment.end_point)
-
-for i, crossroad in enumerate(crossroads):
-    for j, potential_neighbor in enumerate(crossroads):
-        if i != j and crossroad.coordinates == potential_neighbor.coordinates:
-            for segment1 in crossroad.segments:
-                for segment2 in potential_neighbor.segments:
-                    if segment1 != segment2 and segment1.street != segment2.street:
-                        segment1.add_neighbor(segment2)
-                        segment2.add_neighbor(segment1)
-
-for street in streets:
-    print(f"Trying a new street: {street}")
-    current_color = pick_new_color()
-    print(f"Initial color picked for {street}: {current_color}")
-    dfs_color(street, current_color)
-
-plot(streets)
+if __name__ == "__main__":
+    main()
