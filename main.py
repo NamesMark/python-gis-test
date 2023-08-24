@@ -58,6 +58,7 @@ class Segment:
         
     def add_neighbor(self, neighbor):
         angle = self.compute_angle(neighbor)
+        print(f"Segment of {self.street} between {self.start_point.coordinates} and {self.end_point.coordinates} has neighbor between {neighbor.start_point.coordinates} and {neighbor.end_point.coordinates} with angle {angle}")
         self.neighbors.append((neighbor, angle))
 
     def compute_angle(self, neighbor):
@@ -87,31 +88,44 @@ def angle_between(v1, v2):
     return angle
 
 def dfs_color(street, current_color, visited=set()):
-    if street.color or street in visited:
-        print(f"This street has a color or was visited before")
+    if street.color:
+        print(f"Street {street} already colored as {street.color}")
         return
+    if street in visited:
+        print(f"Street {street} was already visited")
+        return
+    
     visited.add(street)
     
     if len(street.start_segment.neighbors) == 0 and len(street.end_segment.neighbors) == 0:
         street.color = current_color
-        print(f"No neighbors found, coloring")
+        print(f"Street {street} has no neighbors, so coloring it {current_color}")
         return
+    
     for neighbor, angle in street.start_segment.neighbors:
+        print(f"Checking neighbor from start segment of {street}: {neighbor.street} with angle {angle}")
         if len(street.start_segment.neighbors) == 1 and not neighbor.street.color:
+            print(f"Only one neighbor and it's not colored, so coloring {neighbor.street} {current_color}")
             dfs_color(neighbor.street, current_color)
-        elif angle<MAX_ANGLE and not neighbor.street.color:
+        elif angle < MAX_ANGLE and not neighbor.street.color:
+            print(f"Neighbor angle less than {MAX_ANGLE} and it's not colored, so coloring {neighbor.street} {current_color}")
             dfs_color(neighbor.street, current_color)
-        elif not neighbor.street.color:
+        elif not neighbor.street.color and not neighbor.street in visited:
             new_color = pick_new_color()
+            print(f"Coloring neighbor {neighbor.street} with new color {new_color}")
             dfs_color(neighbor.street, new_color)
             
     for neighbor, angle in street.end_segment.neighbors:
+        print(f"Checking neighbor from end segment of {street}: {neighbor.street} with angle {angle}")
         if len(street.end_segment.neighbors) == 1 and not neighbor.street.color:
+            print(f"Only one neighbor and it's not colored, so coloring {neighbor.street} {current_color}")
             dfs_color(neighbor.street, current_color)
         elif angle<MAX_ANGLE and not neighbor.street.color:
+            print(f"Neighbor angle less than {MAX_ANGLE} and it's not colored, so coloring {neighbor.street} {current_color}")
             dfs_color(neighbor.street, current_color)
-        elif not neighbor.street.color:
+        elif not neighbor.street.color and not neighbor.street in visited:
             new_color = pick_new_color()
+            print(f"Coloring neighbor {neighbor.street} with new color {new_color}")
             dfs_color(neighbor.street, new_color)
         
 
@@ -131,13 +145,14 @@ for i, crossroad in enumerate(crossroads):
         if i != j and crossroad.coordinates == potential_neighbor.coordinates:
             for segment1 in crossroad.segments:
                 for segment2 in potential_neighbor.segments:
-                    if segment1 != segment2:
+                    if segment1 != segment2 and segment1.street != segment2.street:
                         segment1.add_neighbor(segment2)
                         segment2.add_neighbor(segment1)
 
 for street in streets:
-    print(f"Trying a new street")
+    print(f"Trying a new street: {street}")
     current_color = pick_new_color()
+    print(f"Initial color picked for {street}: {current_color}")
     dfs_color(street, current_color)
 
 plot(streets)
