@@ -12,8 +12,8 @@ For each multiline end point, if there exist another multiline, it is of the sam
 
 ## Approach
 - I used `geopandas` to read and manipulate the shape data. I've added a new row `style` to color them and check visited shapes.
-- The biggest challenge was ensuring that the algorithm was selecting only one neighbor (done in `identify_street_continuation()`), and that it chose specifically the one that has the smallest angle to the current one (using `angle_between()` with dot product formula, and then returned abs deviation from 180 degrees). I then passed the best candidate for either ends of the current segment to be painted recursively.  
-- I then utilized `matplotlib` to plot the streets.
+- The biggest challenge was ensuring that the algorithm was selecting only one neighbor (done in `identify_street_continuation()`), and that it chose specifically the one that has the smallest angle to the current one (using `angle_between()` with dot product formula, and then returned abs deviation from the straight line). I then passed the best candidate for either ends of the current segment to be painted recursively.  
+- Finally, I utilized `matplotlib` to plot the streets.
 
 ## Complexity
 Super-worst case for my dfs is O(n^2) if all segments are neighbors of each other. But real-life case should be closer to O(n). All other operations should work either for O(n) or constant time.
