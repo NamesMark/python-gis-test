@@ -6,7 +6,7 @@ from itertools import cycle
 
 OUTPUT_SIZE = 3000
 OUTPUT_RES = 300
-MAX_ANGLE = 45
+MAX_ANGLE = 33
 
 INPUT_PATH = 'sample/roads.shp'
 OUTPUT_PATH = 'output/solution.png'
