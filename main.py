@@ -1,8 +1,6 @@
-import shapefile
+import geopandas as gpd
 import matplotlib.pyplot as plt
-import random
 import math
-
 from styles import COLORS, STYLES
 from itertools import cycle
 
@@ -12,30 +10,24 @@ MAX_ANGLE = 45
 
 INPUT_PATH = 'sample/roads.shp'
 OUTPUT_PATH = 'output/solution.png'
-
-VARIED_STYLES = True
+VARIED_STYLES = False
 
 color_iter = cycle(COLORS)
 style_iter = cycle(STYLES)
-    
-class Street:
-    def __init__(self, shape):
-        self.shape = shape
-        self.style = None
 
 def read_shp(file_path):
-    shp = shapefile.Reader(file_path)
-    return [Street(shape) for shape in shp.shapes()]
+    return gpd.read_file(file_path)
 
-def plot(streets):
+def plot(geodataframe):
     dimension = OUTPUT_SIZE / OUTPUT_RES
     fig, ax = plt.subplots(figsize=(dimension, dimension))
 
-    for street in streets:
-        shape = street.shape
-        x = [point[0] for point in shape.points]
-        y = [point[1] for point in shape.points]
-        ax.plot(x, y, color=street.style[0], dashes=street.style[1])
+    for _, row in geodataframe.iterrows():
+        if row.geometry:
+            style = row['style']
+            x, y = row.geometry.xy
+            ax.plot(x, y, color=style[0], dashes=style[1])
+
     print("SAVED FILE")
     plt.savefig(OUTPUT_PATH, dpi=OUTPUT_RES)
 
@@ -45,76 +37,69 @@ def pick_new_style():
     return (next(color_iter), (None, None))
 
 def get_vector_from_points(points):
-    return (points[-1][0] - points[-2][0], points[-1][1] - points[-2][1])
-
-
-def dfs_color(street, all_streets, current_style):
-    if street.style:
-        return
-    
-    street.style = current_style
-    neighbors = check_neighbors(street, all_streets)
-    if not neighbors:
-        return
-    if len(neighbors) == 1:
-        dfs_color(neighbors[0], all_streets, current_style)
-    else:
-        target_points = street.shape.points
-        target_vector = get_vector_from_points(target_points)
-
-        for neighbor in neighbors:
-            neighbor_points = neighbor.shape.points
-            neighbor_vector = get_vector_from_points(neighbor_points)
-
-            angle = angle_between(target_vector, neighbor_vector)
-
-            if angle <= MAX_ANGLE:
-                dfs_color(neighbor, all_streets, current_style)
-            
-def check_neighbors(target_street, all_streets):
-    neighbors = []
-    target_points = target_street.shape.points
-    if not target_points:
-        return
-    start_point = target_points[0]
-    end_point = target_points[-1]
-
-    for street in all_streets:
-        if street is not target_street: 
-            street_points = street.shape.points
-            if not street_points:
-                continue
-            street_start = street_points[0]
-            street_end = street_points[-1]
-
-            if start_point == street_start or start_point == street_end or \
-               end_point == street_start or end_point == street_end:
-                neighbors.append(street)
-
-    return neighbors
+    p1, p2 = points[-2], points[-1]
+    return (p2[0] - p1[0], p2[1] - p1[1])
 
 def angle_between(v1, v2):
-    dot_product = v1[0]*v2[0] + v1[1]*v2[1]
-    mag_v1 = math.sqrt(v1[0]**2 + v1[1]**2)
-    mag_v2 = math.sqrt(v2[0]**2 + v2[1]**2)
-    if mag_v1 == 0 or mag_v2 == 0:
-        return 0
+    dot_product = v1[0] * v2[0] + v1[1] * v2[1]
+    mag_v1 = math.sqrt(v1[0] ** 2 + v1[1] ** 2)
+    mag_v2 = math.sqrt(v2[0] ** 2 + v2[1] ** 2)
     cos_angle = dot_product / (mag_v1 * mag_v2)
     angle = math.degrees(math.acos(max(min(cos_angle, 1), -1)))
-    if angle>90+MAX_ANGLE:
-        angle = abs(angle-180)
+    if angle > 90 + MAX_ANGLE:
+        angle = abs(angle - 180)
     #print(angle)
     return angle
 
+def dfs_color(row, geodataframe, current_style):
+    if row['style']:
+        print(f"Row {row.name} already has style: {row['style']}")
+        return
+
+    geodataframe.at[row.name, 'style'] = current_style
+    print(f"Assigning style {current_style} to row {row.name}")
+    
+    neighbors = geodataframe[geodataframe.geometry.touches(row.geometry) & ~geodataframe.index.isin([row.name])]
+
+    print(f"Row {row.name} has {len(neighbors)} neighbors.")
+
+    if neighbors.empty:
+        return
+
+    if len(neighbors) == 1:
+        if not neighbors.iloc[0].style:
+            print(f"Recursively coloring single neighbor of row {row.name}.")
+            dfs_color(neighbors.iloc[0], geodataframe, current_style)
+    else:
+        target_vector = get_vector_from_points(list(row.geometry.coords))
+
+        for _, neighbor in neighbors.iterrows():
+            neighbor_vector = get_vector_from_points(list(neighbor.geometry.coords))
+            angle = angle_between(target_vector, neighbor_vector)
+            print(f"Angle between row {row.name} and neighbor {neighbor.name} is {angle} degrees.")
+
+            if angle <= MAX_ANGLE:
+                if not neighbor.style:
+                    print(f"Recursively coloring neighbor {neighbor.name} because angle {angle} is less than {MAX_ANGLE} degrees.")
+                    dfs_color(neighbor, geodataframe, current_style)
+                else:        
+                    print(f"Not coloring neighbor {neighbor.name} because angle it was already visited.")
+            else:
+                print(f"Not coloring neighbor {neighbor.name} because angle {angle} is more than {MAX_ANGLE} degrees")
+
 def main():
-    all_streets = read_shp(INPUT_PATH)
+    geodataframe = read_shp(INPUT_PATH)
+    geodataframe['style'] = None 
 
-    for street in all_streets:
-        if not street.style:
+    for _, row in geodataframe.iterrows():
+        if row.isna().all():
+            continue
+
+        if not geodataframe.loc[row.name, 'style']:
             current_style = pick_new_style()
-            dfs_color(street, all_streets, current_style)
+            dfs_color(row, geodataframe, current_style)
 
-    plot(all_streets)
+    plot(geodataframe)
 
 if __name__ == "__main__":
     main()
