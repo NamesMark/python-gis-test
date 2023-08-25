@@ -1,20 +1,20 @@
 import math
 import geopandas as gpd
 import matplotlib.pyplot as plt
-from styles import COLORS, STYLES
+from random import choice
 from itertools import cycle
+from styles import COLORS, STYLES
 from shapely.geometry import Point, LineString
 
 OUTPUT_SIZE = 3000
 OUTPUT_RES = 300
-MAX_ANGLE = 45
+MAX_ANGLE = 50
 
 INPUT_PATH = 'sample/roads.shp'
 OUTPUT_PATH = 'output/solution_varied.png'
 VARIED_STYLES = True
 
 color_iter = cycle(COLORS)
-style_iter = cycle(STYLES)
 
 def read_shp(file_path):
     return gpd.read_file(file_path)
@@ -34,7 +34,7 @@ def plot(geodataframe):
 
 def pick_new_style():
     if VARIED_STYLES:
-        return (next(color_iter), next(style_iter))
+        return (next(color_iter), choice(STYLES))
     return (next(color_iter), (None, None))
 
 def angle_between(v1, v2):
@@ -75,7 +75,6 @@ def dfs_color(row, geodataframe, current_style):
     if end_neighbor is not None:
         dfs_color(end_neighbor, geodataframe, current_style)
         
-
 def identify_street_continuation(segment, neighbors):
     if neighbors.empty:
         return None
@@ -93,10 +92,10 @@ def identify_street_continuation(segment, neighbors):
     for _, neighbor in neighbors.iterrows():
         if Point(neighbor.geometry.coords[0]).intersects(segment):
             neighbor_vector = (neighbor.geometry.coords[1][0]  - neighbor.geometry.coords[0][0], 
-                            neighbor.geometry.coords[1][1]  - neighbor.geometry.coords[0][1])
+                               neighbor.geometry.coords[1][1]  - neighbor.geometry.coords[0][1])
         else:
             neighbor_vector = (neighbor.geometry.coords[-1][0] - neighbor.geometry.coords[-2][0], 
-                            neighbor.geometry.coords[-1][1] - neighbor.geometry.coords[-2][1])
+                               neighbor.geometry.coords[-1][1] - neighbor.geometry.coords[-2][1])
 
         angle = angle_between(target_vector, neighbor_vector)
 
